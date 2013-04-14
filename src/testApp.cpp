@@ -29,8 +29,9 @@ void testApp::setup()
 	glutSolidSphere(1, 40, 40);
 	glEndList();
 	
-    flyBox_x = 700, flyBox_y=700, flyBox_z = 300;
+    flyBox_x = 600, flyBox_y=600, flyBox_z = 400;
     
+    bAddBoid = false;
 	boidNum = 5;
 	target = ofVec3f(0, 0, 0);
 	
@@ -43,14 +44,13 @@ void testApp::setup()
         follow.push_back(ofRandom(100)>70); //if true, boid will chase the tuio target
 	}
 	
-    cam_z = 400; cam_angle = -10*PI/180; mark_z=0; mark_z=0;
-    mark_y = cam_z * tan(cam_angle);
-    cam_f = 0.77; //half angle, view_height = cam_f * cam_distance
     cam_half_view_x = 44; //full view is 44 degree
+    cam_z = 400; cam_angle = -15*PI/180;
+    
 
     
     cam.setDistance(cam_z);
-    cam.setTarget(ofVec3f(mark_x, mark_y, mark_z));
+    adjustCamAngle();
     cam.disableMouseInput();
     cam.setNearClip(50);
     cam.setFarClip(1000);
@@ -74,20 +74,50 @@ void testApp::setup()
     drawMouseTarget = false;
 }
 
+void testApp::adjustCamAngle(){
+    mark_x=0; mark_z=0;
+    mark_y = cam_z * tan(cam_angle);
+    cam.setTarget(ofVec3f(mark_x, mark_y, mark_z));
+}
+
 //--------------------------------------------------------------
 void testApp::update()
 {
+    updateTuio();
+    
+    for (int i = 0; i < boidNum; i++)
+	{
+		boids[i].flock(boids);
+        if(bTuioTouched){
+            if(distance(boids[i].position, target)<200){  //too close, flee
+                boids[i].flee(target);
+            }else if(follow[i]){
+                boids[i].seek(target);
+            }
+            if(ofRandom(100)>90) follow[i]=(ofRandom(100)>70);  //once for a while a boid change between follow and not follow
+        }
+		boids[i].update();
+        //		boids[i].wrap(700, 500, 500);
+        //        boids[i].bounce(flyBox_x, flyBox_y, flyBox_z);
+        boids[i].bounceOffset(-flyBox_x/2, flyBox_x/2, -flyBox_y/2+mark_y, flyBox_y/2+mark_y, -flyBox_z/2, flyBox_z/2);
+	}
+
+}
+
+void testApp::updateTuio(){
+    bTuioTouched = false;
     drawTarget = drawMouseTarget;
     float tuio_x = 0;
     float tuio_y = 0;
     float tuio_z = 0;
     float tuio_vx = 0;
     float tuio_vy = 0;
-    float tuio_speed = 0;
+    float tuio_speed = -1;
     
     tuioClient.getMessage();
     list<ofxTuioCursor*>cursorList = tuioClient.getTuioCursors();
     for(list<ofxTuioCursor*>::iterator it=cursorList.begin(); it!=cursorList.end(); it++){
+        bTuioTouched = true;
         ofxTuioCursor *tcur = (*it);
         float vx = tcur->getXSpeed();
         float vy = tcur->getYSpeed();
@@ -97,43 +127,27 @@ void testApp::update()
             tuio_vx = vx;
             tuio_vy = vy;
             
-//            float angle_x = atan((x-w/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
-//            float angle_y = atan((y-h/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
-//            framex =tan(angle_x)*cam_z;
-//            framey =-tan(angle_y-cam_angle)*cam_z;
             float angle_x = atan((tcur->getX()-0.5) * 2 * cam_half_view_x/180*PI);
             float angle_y = atan((tcur->getY()-0.5) * 2 * cam_half_view_x/180*PI);
             
-            tuio_x = tan(angle_x)*cam_z;
-            tuio_y = -tan(angle_y)*cam_z;
-            tuio_z = 0;//-(tcur->getY()-0.5)*500;
+            tuio_x = tcur->getX();
+            tuio_y = tcur->getY();
+            tuio_z = 0;
         }
     }
-    if(tuio_speed>0){
+    if(bTuioTouched){
         cout<<tuio_x<<" "<<tuio_y<<" "<<tuio_vx<<" "<<tuio_vy<<endl;
-        target = ofVec3f(tuio_x, tuio_y, tuio_z);
-        addABoid(target);
+        float boxX, boxY, boxZ;
+        screenToBox(tuio_x*ofGetWidth(), tuio_y*ofGetHeight(), boxX, boxY);
+        boxZ = flyBox_z/2;
+        target = ofVec3f(boxX, boxY, boxZ);
+        if(bAddBoid){
+            ofVec3f source = ofVec3f(boxX + ofRandom(20)-10, boxY+ofRandom(20)-10, ofRandom(20)-10);
+            addABoid(source);
+        }
         drawTarget = true;
     }
     
-	for (int i = 0; i < boidNum; i++)
-	{
-		boids[i].flock(boids);
-        if(tuio_speed>0){
-//            if(boids[i].tooClose(target)){
-            if(distance(boids[i].position, target)<200){  //too close, flee
-                boids[i].flee(target);
-//            }else if(ofRandom(100)>30){
-            }else if(follow[i]){
-                boids[i].seek(target);
-            }
-            if(ofRandom(100)>90) follow[i]=(ofRandom(100)>70);  //once for a while a boid change between follow and not follow
-        }
-		boids[i].update();
-//		boids[i].wrap(700, 500, 500);
-//        boids[i].bounce(flyBox_x, flyBox_y, flyBox_z);
-        boids[i].bounceOffset(-flyBox_x/2, flyBox_x/2, -flyBox_y/2+cam_z*tan(cam_angle), flyBox_y/2+cam_z*tan(cam_angle), -flyBox_z/2, flyBox_z/2);
-	}
 }
 
 float testApp::distance(ofVec3f &x0, ofVec3f &x1){
@@ -179,118 +193,122 @@ void testApp::draw()
 	cam.end();
 }
 
-float increment(float val){
-    float delta = 0.01;
+float increment(float val, float delta){
     val += delta;
     return (val>1) ? 1 : val;
 }
 
-float decrement(float val){
-    float delta = 0.01;
+float decrement(float val, float delta){
     val -= delta;
     return (val<0) ? 0 : val;
 }
 
 //--------------------------------------------------------------
 void testApp::keyPressed(int key){
-    float delta = 0.01;
     switch(key){
         case 'f':
             ofToggleFullscreen();
             break;
         case 'h':
-            gui->toggleVisible();
+//            gui->toggleVisible();
             break;
         case 'r':
-            backdrop_r = increment(backdrop_r);
+            backdrop_r = increment(backdrop_r, 0.01);
             break;
         case 'R':
-            backdrop_r = decrement(backdrop_r);
+            backdrop_r = decrement(backdrop_r, 0.01);
             break;
         case 'g':
-            backdrop_g = increment(backdrop_g);
+            backdrop_g = increment(backdrop_g, 0.01);
             break;
         case 'G':
-            backdrop_g = decrement(backdrop_g);
+            backdrop_g = decrement(backdrop_g, 0.01);
             break;
         case 'b':
-            backdrop_b = increment(backdrop_b);
+            backdrop_b = increment(backdrop_b, 0.01);
             break;
         case 'B':
-            backdrop_b = decrement(backdrop_b);
+            backdrop_b = decrement(backdrop_b, 0.01);
             break;
         case 'a':
-            backdrop_a = increment(backdrop_a);
+            backdrop_a = increment(backdrop_a, 0.002);
             break;
         case 'A':
-            backdrop_a = decrement(backdrop_a);
+            backdrop_a = decrement(backdrop_a, 0.002);
             break;
         case 'z':
-            cam_z++;
-            cam.setDistance(cam_z);
+//            cam_z++;
+            cam_angle-=0.001;
+            cam_angle  = (cam_angle< -1.5) ? -1.5 : cam_angle; //minimum angle 86
+            adjustCamAngle();
+            cout<<"cam_angle:"<<cam_angle<<endl;
+//            cam.setDistance(cam_z);
             break;
         case 'Z':
-            cam_z--;
-            cam.setDistance(cam_z);
+//            cam_z--;
+            cam_angle+=0.001; //looking up
+            cam_angle = cam_angle > 0 ? 0 : cam_angle; //maximun 0, looking straight up
+            adjustCamAngle();
+            cout<<"cam_angle:"<<cam_angle<<endl;
+//            cam.setDistance(cam_z);
+            break;
+        case ' ':
+            bAddBoid = !bAddBoid;
+            cout<<"Adding boid is "<<bAddBoid<<endl;
             break;
     }
-    cout<<backdrop_r<<" "<<backdrop_g<<" "<<backdrop_b<<" "<<backdrop_a<<" "<<cam_z<<endl;
+    cout<<"r"<<backdrop_r<<" g"<<backdrop_g<<" b"<<backdrop_b<<" a"<<backdrop_a<<" cam_z"<<cam_z<<endl;
 }
 
 //--------------------------------------------------------------
 void testApp::keyReleased(int key){
-
 }
 
 //--------------------------------------------------------------
 void testApp::mouseMoved(int x, int y ){
     float framex, framey;
-    float w, h;
-    w=ofGetWidth();
-    h=ofGetHeight();
-    float scale = max(W/w, H/h);
-    float angle_x = atan((x-w/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
-    float angle_y = atan((y-h/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
-    framex =tan(angle_x)*cam_z;
-    framey =-tan(angle_y-cam_angle)*cam_z;
 
-    
-    cout<<x<<" "<<y<<" --> "<<framex<<" "<<framey<<endl;
+    screenToBox(x, y, framex, framey);
+//    cout<<x<<" "<<y<<" --> "<<framex<<" "<<framey<<endl;
     for(int i=0; i<boidNum; i++){
         if(ofRandom(100)>30)
             boids[i].seek(ofVec3f(framex, framey, flyBox_z/2));
     }
 }
 
+//--------------------------------------------------------------
+void testApp::mouseDragged(int x, int y, int button){
+    drawMouseTarget = true;
+
+    float framex, framey;
+    screenToBox(x, y, framex, framey);
+	target = ofVec3f(framex, framey, 0);
+	
+    ofVec3f loc = ofVec3f(ofRandom(20)-10+framex, ofRandom(20)-10+framey, ofRandom(100)-50);
+    addABoid(loc);
+}
+
+void testApp::screenToBox(float screenX, float screenY, float &boxX, float &boxY){
+    float w, h;
+    w=ofGetWidth();
+    h=ofGetHeight();
+    float scale = max(W/w, H/h);
+    float angle_x = atan((screenX-w/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
+    float angle_y = atan((screenY-h/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
+    boxX =tan(angle_x)*cam_z;
+    boxY =-tan(angle_y-cam_angle)*cam_z;
+}
+
 void testApp::addABoid(ofVec3f &loc){
     boidNum++;
-
+    
     SteeredVehicle v(loc[0], loc[1], loc[2]);
     v.maxForce = 0.5f;
     v.inSightDist = 60.0f;
     boids.push_back(v);
     follow.push_back(ofRandom(100)>70); //if true, boid will chase the tuio target
     cout<<"added a boid "<<boidNum<<" "<<loc[0]<<" "<<loc[1]<<" "<<loc[2]<<endl;
-
-}
-//--------------------------------------------------------------
-void testApp::mouseDragged(int x, int y, int button){
-    drawMouseTarget = true;
-
-    float framex, framey;
-    float w, h;
-    w=ofGetWidth();
-    h=ofGetHeight();
-    float scale = max(W/w, H/h);
-    float angle_x = atan((x-w/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
-    float angle_y = atan((y-h/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
-    framex =tan(angle_x)*cam_z;
-    framey =-tan(angle_y-cam_angle)*cam_z;
-
-	target = ofVec3f(framex, framey, 0);
-	
-    ofVec3f loc = ofVec3f(ofRandom(20)-10+framex, ofRandom(20)-10+framey, ofRandom(100)-50);
-    addABoid(loc);
+    
 }
 
 //--------------------------------------------------------------

@@ -34,9 +34,10 @@ public:
     float cam_z, cam_angle, cam_f, cam_half_view_x, cam_half_view_y;
     float mark_x, mark_y, mark_z; //where the camera is looking
     float flyBox_x, flyBox_y, flyBox_z;
-    
+    bool bAddBoid;
 	
 	ofEasyCam cam;
+    void adjustCamAngle();
     ofFbo fbo;
     ofImage backdrop;
     
@@ -48,6 +49,10 @@ public:
 	vector<SteeredVehicle> boids;
     void addABoid(ofVec3f & loc);
     vector<bool> follow;
-	float distance(ofVec3f &x0, ofVec3f &x1);
+	
+    float distance(ofVec3f &x0, ofVec3f &x1);
+    void screenToBox(float screenX, float screenY, float &boxX, float &boxY);
     ofxTuioClient tuioClient;
+    void updateTuio();
+    bool bTuioTouched;
 };
