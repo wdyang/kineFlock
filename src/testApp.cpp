@@ -18,7 +18,7 @@ void testApp::setup()
     backdrop_r = 0.4;
     backdrop_g = 0.6;
     backdrop_b = 1.0;
-    backdrop_a = 0.2;
+    backdrop_a = 0.1;
     
 //    drawGUI=true;
 //    setGUI();
@@ -29,7 +29,9 @@ void testApp::setup()
 	glutSolidSphere(1, 40, 40);
 	glEndList();
 	
-	boidNum = 10;
+    flyBox_x = 700, flyBox_y=700, flyBox_z = 300;
+    
+	boidNum = 5;
 	target = ofVec3f(0, 0, 0);
 	
 	for (int i = 0; i < boidNum; i++)
@@ -41,12 +43,21 @@ void testApp::setup()
         follow.push_back(ofRandom(100)>70); //if true, boid will chase the tuio target
 	}
 	
-	cam.setDistance(600);
+    cam_z = 400; cam_angle = -10*PI/180; mark_z=0; mark_z=0;
+    mark_y = cam_z * tan(cam_angle);
+    cam_f = 0.77; //half angle, view_height = cam_f * cam_distance
+    cam_half_view_x = 44; //full view is 44 degree
+
+    
+    cam.setDistance(cam_z);
+    cam.setTarget(ofVec3f(mark_x, mark_y, mark_z));
     cam.disableMouseInput();
-//    cam.setNearClip(50);
-//    cam.setFarClip(1000);
+    cam.setNearClip(50);
+    cam.setFarClip(1000);
     fbo.allocate(ofGetWidth(), ofGetHeight());
     backdrop.loadImage("images/clouds.jpg");
+    music.loadSound("Koda - Glass Veil (CoMa Remix).mp3");
+    music.play();
 	
     float backdroplight = 1.0;
 	GLfloat color[] = { backdroplight, backdroplight, backdroplight };
@@ -60,11 +71,13 @@ void testApp::setup()
     glLightfv(GL_LIGHT0, GL_AMBIENT, color);
     
     tuioClient.start(3333);
+    drawMouseTarget = false;
 }
 
 //--------------------------------------------------------------
 void testApp::update()
 {
+    drawTarget = drawMouseTarget;
     float tuio_x = 0;
     float tuio_y = 0;
     float tuio_z = 0;
@@ -83,15 +96,25 @@ void testApp::update()
             tuio_speed = speed;
             tuio_vx = vx;
             tuio_vy = vy;
-            tuio_x = (tcur->getX()-0.5)*700;
-            tuio_y = -(tcur->getY()-0.4)*500;
-            tuio_z = -(tcur->getY()-0.5)*500;
+            
+//            float angle_x = atan((x-w/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
+//            float angle_y = atan((y-h/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
+//            framex =tan(angle_x)*cam_z;
+//            framey =-tan(angle_y-cam_angle)*cam_z;
+            float angle_x = atan((tcur->getX()-0.5) * 2 * cam_half_view_x/180*PI);
+            float angle_y = atan((tcur->getY()-0.5) * 2 * cam_half_view_x/180*PI);
+            
+            tuio_x = tan(angle_x)*cam_z;
+            tuio_y = -tan(angle_y)*cam_z;
+            tuio_z = 0;//-(tcur->getY()-0.5)*500;
         }
     }
     if(tuio_speed>0){
         cout<<tuio_x<<" "<<tuio_y<<" "<<tuio_vx<<" "<<tuio_vy<<endl;
+        target = ofVec3f(tuio_x, tuio_y, tuio_z);
+        addABoid(target);
+        drawTarget = true;
     }
-    ofVec3f target = ofVec3f(tuio_x, tuio_y, tuio_z);
     
 	for (int i = 0; i < boidNum; i++)
 	{
@@ -107,62 +130,53 @@ void testApp::update()
             if(ofRandom(100)>90) follow[i]=(ofRandom(100)>70);  //once for a while a boid change between follow and not follow
         }
 		boids[i].update();
-//		boids[i].wrap(500, 500, 500);
-        boids[i].bounce(700, 500, 500);
+//		boids[i].wrap(700, 500, 500);
+//        boids[i].bounce(flyBox_x, flyBox_y, flyBox_z);
+        boids[i].bounceOffset(-flyBox_x/2, flyBox_x/2, -flyBox_y/2+cam_z*tan(cam_angle), flyBox_y/2+cam_z*tan(cam_angle), -flyBox_z/2, flyBox_z/2);
 	}
 }
 
 float testApp::distance(ofVec3f &x0, ofVec3f &x1){
-    return pow((x1.x-x0.x),2) + pow((x1.y-x0.y), 2) +pow((x1.z-x0.z),2)/20;
+    return pow((x1.x-x0.x),2) + pow((x1.y-x0.y), 2) +pow((x1.z-x0.z),2)/100;
 }
 
 //--------------------------------------------------------------
 void testApp::draw()
 {
-//	fbo.begin(false);
-    //    ofClear(0,0,0);
-//    ofClear(0,0,0,1);
-
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-//    ofEnableAlphaBlending();
-//    ofSetColor(2, 2, 2);
-//    backdrop_a=0.1;
     GLfloat color[] = { backdrop_r , backdrop_g, backdrop_b, backdrop_a};
 //    GLfloat color[] = { 1, 0.1, 0.1, 0.2};
     
     glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, color);
     backdrop.draw(0,0, ofGetWidth(), ofGetHeight());
-//    ofDisableAlphaBlending();
     cam.begin();
 	glEnable(GL_DEPTH_TEST);
-//    ofScale(1,-1,1);
     glDepthFunc(GL_ALWAYS);
-//    glDisable(GL_DEPTH_TEST);
-//    ofDrawGrid();
+    ofDrawGrid();
 	
 	for (int i = 0; i < boidNum; i++)
 	{
 		glPushMatrix();
 		glTranslatef(boids[i].position.x, boids[i].position.y, boids[i].position.z);
 		
-//		GLfloat color[] = { 0.2, 0.8, 0.8, 1.0 };
 		GLfloat color[] = { 1, 1, 1, 1.0 };
-//		GLfloat color[] = { 0.8, 0.8, 0.8, 1.0 };
 		
 		glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, color);
 		glCallList(1);
 		glPopMatrix();
 	}
-//	glDepthFunc(GL_LESS);
+    
+    if(drawTarget){
+        glPushMatrix();
+        glTranslatef(target[0], target[1], target[2]);
+        GLfloat color[]={0.1, 0.2, 0.6};
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, color);
+        glCallList(1);
+        glPopMatrix();
+    }
+    
 	cam.end();
-//    ofSetColor(255, 255, 255);
-//    ofEnableAlphaBlending();
-//    backdrop.draw(0,0);
-//    ofDisableAlphaBlending();
-
-//    fbo.end();
-//    fbo.draw(0, 0, ofGetWidth(), ofGetHeight());
 }
 
 float increment(float val){
@@ -211,8 +225,16 @@ void testApp::keyPressed(int key){
         case 'A':
             backdrop_a = decrement(backdrop_a);
             break;
+        case 'z':
+            cam_z++;
+            cam.setDistance(cam_z);
+            break;
+        case 'Z':
+            cam_z--;
+            cam.setDistance(cam_z);
+            break;
     }
-    cout<<backdrop_r<<" "<<backdrop_g<<" "<<backdrop_b<<" "<<backdrop_a<<endl;
+    cout<<backdrop_r<<" "<<backdrop_g<<" "<<backdrop_b<<" "<<backdrop_a<<" "<<cam_z<<endl;
 }
 
 //--------------------------------------------------------------
@@ -226,34 +248,49 @@ void testApp::mouseMoved(int x, int y ){
     float w, h;
     w=ofGetWidth();
     h=ofGetHeight();
-    framex =(x-w/2)*10;
-    framey =-(y-h/2)*10;
+    float scale = max(W/w, H/h);
+    float angle_x = atan((x-w/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
+    float angle_y = atan((y-h/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
+    framex =tan(angle_x)*cam_z;
+    framey =-tan(angle_y-cam_angle)*cam_z;
+
+    
     cout<<x<<" "<<y<<" --> "<<framex<<" "<<framey<<endl;
     for(int i=0; i<boidNum; i++){
         if(ofRandom(100)>30)
-            boids[i].seek(ofVec3f(framex, framey, 100));
+            boids[i].seek(ofVec3f(framex, framey, flyBox_z/2));
     }
 }
 
-//--------------------------------------------------------------
-void testApp::mouseDragged(int x, int y, int button){
-    float framex, framey;
-    float w, h;
-    w=ofGetWidth();
-    h=ofGetHeight();
-    framex =(x-w/2)*0.7;
-    framey =-(y-h/2)*0.7;
+void testApp::addABoid(ofVec3f &loc){
+    boidNum++;
 
-	boidNum++;
-	target = ofVec3f(0, 0, 0);
-	
-    SteeredVehicle v(ofRandom(20)-10+framex, ofRandom(20)-10+framey, ofRandom(100)-50+100);
+    SteeredVehicle v(loc[0], loc[1], loc[2]);
     v.maxForce = 0.5f;
     v.inSightDist = 60.0f;
     boids.push_back(v);
     follow.push_back(ofRandom(100)>70); //if true, boid will chase the tuio target
-    cout<<"added a boid"<<endl;
+    cout<<"added a boid "<<boidNum<<" "<<loc[0]<<" "<<loc[1]<<" "<<loc[2]<<endl;
 
+}
+//--------------------------------------------------------------
+void testApp::mouseDragged(int x, int y, int button){
+    drawMouseTarget = true;
+
+    float framex, framey;
+    float w, h;
+    w=ofGetWidth();
+    h=ofGetHeight();
+    float scale = max(W/w, H/h);
+    float angle_x = atan((x-w/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
+    float angle_y = atan((y-h/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
+    framex =tan(angle_x)*cam_z;
+    framey =-tan(angle_y-cam_angle)*cam_z;
+
+	target = ofVec3f(framex, framey, 0);
+	
+    ofVec3f loc = ofVec3f(ofRandom(20)-10+framex, ofRandom(20)-10+framey, ofRandom(100)-50);
+    addABoid(loc);
 }
 
 //--------------------------------------------------------------
@@ -262,7 +299,7 @@ void testApp::mousePressed(int x, int y, int button){
 
 //--------------------------------------------------------------
 void testApp::mouseReleased(int x, int y, int button){
-
+    drawMouseTarget = false;
 }
 
 //--------------------------------------------------------------
