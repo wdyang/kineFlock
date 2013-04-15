@@ -26,16 +26,22 @@ public:
     void dragEvent(ofDragInfo dragInfo);
     void gotMessage(ofMessage msg);
 	
+//    GUI, not used for now
     void setGUI();
     void guiEvent(ofxUIEventArgs &e);
     ofxUICanvas *gui;
     bool drawGUI;
+    
+//    cam, backdrop
     float backdrop_r, backdrop_g, backdrop_b, backdrop_a;
-    float cam_z, cam_angle, cam_f, cam_half_view_x, cam_half_view_y;
+
+    float cam_center_distance0, cam_center_distance;
+    float cam_z=450, cam_half_view_x=44; //half_view in degree
+//    float cam_angle=-31.3*PI/180;
+    float cam_angle=-56*PI/180;
+//    float cam_angle=-10*PI/180;
     float mark_x, mark_y, mark_z; //where the camera is looking
-    float flyBox_x, flyBox_y, flyBox_z;
-    bool bAddBoid;
-	
+
 	ofEasyCam cam;
     void adjustCamAngle();
     ofFbo fbo;
@@ -43,16 +49,39 @@ public:
     
     ofSoundPlayer music;
 	
-	int boidNum;
-	ofVec3f target;
-    bool drawTarget, drawMouseTarget;
+//      boids
+	int boidNum=5;
+    int maxBoidNum=1500; //frame rate will drop after 1600
 	vector<SteeredVehicle> boids;
-    void addABoid(ofVec3f & loc);
     vector<bool> follow;
+
+    float flyBox_x0=900, flyBox_y0=900, flyBox_z0=300;
+    float flyBox_x, flyBox_y, flyBox_z;
+    void adjustFlyBox();
+    void drawFlyBox();
+    
+    bool bAddBoid=false;
+    bool bKillingBoid = false;
+    void addABoid(ofVec3f & loc);
+    void killLastBoid();
+
+//    Inputs
+	ofVec3f target;
+    bool bHasTuioTarget=false, bHasMouseTarget=false;
 	
     float distance(ofVec3f &x0, ofVec3f &x1);
     void screenToBox(float screenX, float screenY, float &boxX, float &boxY);
+
     ofxTuioClient tuioClient;
     void updateTuio();
     bool bTuioTouched;
+    bool bFromIphone, bFromKinect;
+    bool bHandsTogether;
+    float kinectXMax, kinectXMin, kinectYMax, kinectYMin;
+    void updateKinectMaxMin(float x, float y);
+    vector<ofVec3f> tuioTargets;
+    
+//    often change settings:
+    bool bDrawFlyBox=true;
+    bool bOverlayTargets=true;
 };
