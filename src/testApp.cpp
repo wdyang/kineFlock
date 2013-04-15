@@ -93,14 +93,16 @@ void testApp::update()
     if(bKillingBoid) killLastBoid();
 
     updateTuio();
+    cout<<"tuio:"<<bHasTuioTarget<<" mouse:"<<bHasMouseTarget<<" kinect"<<bFromKinect<<" iphone"<<bFromIphone<<" clap"<<bHandsTogether<<endl;
     
     for (int i = 0; i < boidNum; i++)
 	{
 		boids[i].flock(boids);
         if(bTuioTouched){
-            if(distance(boids[i].position, target)<200){  //too close, flee
+            if(distance(boids[i].position, target)<2000){  //too close, flee
                 boids[i].flee(target);
-            }else if(follow[i]){
+//            }else if(follow[i]){
+            }else if(ofRandom(100)<followChance){ //followChance is proportional to speed, faster wave, more attraction
                 boids[i].seek(target);
             }
             if(ofRandom(100)>90) follow[i]=(ofRandom(100)>70);  //once for a while a boid change between follow and not follow
@@ -141,10 +143,9 @@ void testApp::updateTuio(){
     tuioClient.getMessage();
     list<ofxTuioCursor*>cursorList = tuioClient.getTuioCursors();
     int numTouch = cursorList.size();
-    if(numTouch>0) {
-//        cout<<"Tuio "<<numTouch<<"touchs: ";
-        bTuioTouched = true;
-    }
+
+    if(numTouch>0) bTuioTouched = true;
+
     float handX[2], handY[2];
     int idx = 0;
     for(list<ofxTuioCursor*>::iterator it=cursorList.begin(); it!=cursorList.end(); it++){
@@ -191,17 +192,18 @@ void testApp::updateTuio(){
         }
     }
 
-//    if(bFromKinect) cout<<"Kinect"<<endl;
-    
-    if(bFromKinect && numTouch>1){
+    if(bFromKinect && numTouch>1){  //distance between two hands. if close, we create birds
         float distance = pow(handX[0]-handX[1], 2) + pow(handY[0]-handY[1], 2);
-        cout<<"distance "<<distance<<endl;
-        if (distance < 0.007) bHandsTogether = true;
+        if (distance < 0.009) bHandsTogether = true;
     }
 
-//    if(numTouch>0) cout<<endl;
     if(bTuioTouched){
-//        cout<<tuio_x<<" "<<tuio_y<<" "<<tuio_vx<<" "<<tuio_vy<<endl;
+        if(bFromIphone) {
+            followChance = tuio_speed*50;
+        }else if(bFromKinect){
+            followChance = tuio_speed/200;
+        }
+        cout<<"speed: "<<followChance<<endl;
         
         float boxX, boxY, boxZ;
         screenToBox(tuio_x*ofGetWidth(), tuio_y*ofGetHeight(), boxX, boxY);
@@ -214,7 +216,11 @@ void testApp::updateTuio(){
         }
         bHasTuioTarget = true;
     }
-//    cout<<ofGetFrameRate()<<endl;
+    if(bTuioTouched){
+        if(lastTuioX == tuio_x && lastTuioY==tuio_y){ //LKB bug, keeps on sending tuio msg even when hands have left the scene
+            bTuioTouched = false;
+        }
+    }
 }
 
 float testApp::distance(ofVec3f &x0, ofVec3f &x1){
@@ -261,14 +267,12 @@ void testApp::draw()
     }
     //Draw mouse touch points
     if(bOverlayTargets && bHasMouseTarget){
-        for(int i=0; i<tuioTargets.size(); i++){
-            glPushMatrix();
-            glTranslatef(target[0], target[1], target[2]);
-            GLfloat color[]={0.1, 0.2, 0.6};
-            glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, color);
-            glCallList(2);
-            glPopMatrix();
-        }
+        glPushMatrix();
+        glTranslatef(target[0], target[1], target[2]);
+        GLfloat color[]={0.1, 0.2, 0.6};
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, color);
+        glCallList(2);
+        glPopMatrix();
     }
 
     glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, color);

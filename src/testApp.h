@@ -57,6 +57,7 @@ public:
 
     float flyBox_x0=900, flyBox_y0=900, flyBox_z0=300;
     float flyBox_x, flyBox_y, flyBox_z;
+    float followChance=0;
     void adjustFlyBox();
     void drawFlyBox();
     
@@ -80,6 +81,7 @@ public:
     float kinectXMax, kinectXMin, kinectYMax, kinectYMin;
     void updateKinectMaxMin(float x, float y);
     vector<ofVec3f> tuioTargets;
+    float lastTuioX=0, lastTuioY=0;
     
 //    often change settings:
     bool bDrawFlyBox=true;
