@@ -35,11 +35,11 @@ public:
 //    cam, backdrop
     float backdrop_r, backdrop_g, backdrop_b, backdrop_a;
 
-    float cam_center_distance0, cam_center_distance;
-    float cam_z=450, cam_half_view_x=44; //half_view in degree
+    float cam_center_distance0, cam_center_distance;//distance from camera to the point intercept screen plan
+    float cam_z=250, cam_half_view_x=44; //half_view in degree
 //    float cam_angle=-31.3*PI/180;
-    float cam_angle=-56*PI/180;
-//    float cam_angle=-10*PI/180;
+//    float cam_angle=-56*PI/180;
+    float cam_angle=-70*PI/180;
     float mark_x, mark_y, mark_z; //where the camera is looking
 
 	ofEasyCam cam;
@@ -68,7 +68,7 @@ public:
 
 //    Inputs
 	ofVec3f target;
-    bool bHasTuioTarget=false, bHasMouseTarget=false;
+    bool bHasTuioTarget=false, bHasMouseTarget=false, bEnableFollow=true;
 	
     float distance(ofVec3f &x0, ofVec3f &x1);
     void screenToBox(float screenX, float screenY, float &boxX, float &boxY);

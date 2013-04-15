@@ -93,7 +93,7 @@ void testApp::update()
     if(bKillingBoid) killLastBoid();
 
     updateTuio();
-    cout<<"tuio:"<<bHasTuioTarget<<" mouse:"<<bHasMouseTarget<<" kinect"<<bFromKinect<<" iphone"<<bFromIphone<<" clap"<<bHandsTogether<<endl;
+//    cout<<"tuio:"<<bHasTuioTarget<<" mouse:"<<bHasMouseTarget<<" kinect"<<bFromKinect<<" iphone"<<bFromIphone<<" clap"<<bHandsTogether<<endl;
     
     for (int i = 0; i < boidNum; i++)
 	{
@@ -102,7 +102,7 @@ void testApp::update()
             if(distance(boids[i].position, target)<2000){  //too close, flee
                 boids[i].flee(target);
 //            }else if(follow[i]){
-            }else if(ofRandom(100)<followChance){ //followChance is proportional to speed, faster wave, more attraction
+            }else if(bEnableFollow && (ofRandom(100)<followChance)){ //followChance is proportional to speed, faster wave, more attraction
                 boids[i].seek(target);
             }
             if(ofRandom(100)>90) follow[i]=(ofRandom(100)>70);  //once for a while a boid change between follow and not follow
@@ -388,6 +388,10 @@ void testApp::keyPressed(int key){
             bOverlayTargets = !bOverlayTargets;
             cout<<"OverlayTargets is "<<bOverlayTargets<<endl;
             break;
+        case 'e':
+            bEnableFollow = !bEnableFollow;
+            cout<<"EnableFollow is "<<bEnableFollow<<endl;
+            break;
             
     }
 //    cout<<"r"<<backdrop_r<<" g"<<backdrop_g<<" b"<<backdrop_b<<" a"<<backdrop_a<<" cam_z"<<cam_z<<endl;
@@ -402,11 +406,12 @@ void testApp::keyReleased(int key){
 void testApp::mouseMoved(int x, int y ){
     float framex, framey;
 
-    screenToBox(x, y, framex, framey);
-//    cout<<x<<" "<<y<<" --> "<<framex<<" "<<framey<<endl;
-    for(int i=0; i<boidNum; i++){
-        if(ofRandom(100)>30)
-            boids[i].seek(ofVec3f(framex, framey, flyBox_z/2));
+    if(bEnableFollow){
+        screenToBox(x, y, framex, framey);
+        for(int i=0; i<boidNum; i++){
+            if(ofRandom(100)>30)
+                boids[i].seek(ofVec3f(framex, framey, flyBox_z/2));
+        }
     }
 }
 
@@ -429,8 +434,15 @@ void testApp::screenToBox(float screenX, float screenY, float &boxX, float &boxY
     float scale = max(W/w, H/h);
     float angle_x = atan((screenX-w/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
     float angle_y = atan((screenY-h/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
-    boxX =tan(angle_x)*cam_z;
+//    boxX =tan(angle_x)*cam_z;
     boxY =-tan(angle_y-cam_angle)*cam_z;
+    
+    
+    float screenCordX = tan(angle_x) * cam_center_distance;
+    float screenCordY = tan(angle_y) * cam_center_distance;
+    float z = screenCordY * sin(cam_angle);
+    
+    boxX = screenCordX * cam_z/(cam_z+z);
 }
 
 void testApp::addABoid(ofVec3f &loc){
