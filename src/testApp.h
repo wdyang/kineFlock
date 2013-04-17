@@ -5,6 +5,11 @@
 #include "ofxTuio.h"
 #include "ofxUI.h"
 
+#include "ofxOsc.h"
+#define HOST_IPAD "192.168.2.2" //ipad ip
+#define PORT_TO_IPAD 9000
+#define PORT_IN 8000
+
 #define W 1024
 #define H 768
 
@@ -34,6 +39,8 @@ public:
     
 //    cam, backdrop
     float backdrop_r, backdrop_g, backdrop_b, backdrop_a;
+    bool bBrighter=false, bDarker=false;
+    void updateBackDrop();
 
     float cam_center_distance0, cam_center_distance;//distance from camera to the point intercept screen plan
     float cam_z=250, cam_half_view_x=44; //half_view in degree
@@ -41,6 +48,8 @@ public:
 //    float cam_angle=-56*PI/180;
     float cam_angle=-70*PI/180;
     float mark_x, mark_y, mark_z; //where the camera is looking
+    bool bCamAngleFar=false, bCamAngleUp=false;
+    void updateCamAngle();
 
 	ofEasyCam cam;
     void adjustCamAngle();
@@ -61,7 +70,7 @@ public:
     void adjustFlyBox();
     void drawFlyBox();
     
-    bool bAddBoid=false;
+    bool bAddBoid=true;
     bool bKillingBoid = false;
     void addABoid(ofVec3f & loc);
     void killLastBoid();
@@ -86,4 +95,13 @@ public:
 //    often change settings:
     bool bDrawFlyBox=true;
     bool bOverlayTargets=true;
+    
+//  OSC control
+    ofxOscReceiver receiver;
+    ofxOscSender    sender;
+    void parseOSCMessage();
+    void oscSendInt(const string &address, int msg);
+    void oscSendFloat(const string &address, float msg);
+    void oscSendString(const string &address, const string &msg);
+    void oscSendInitConfig();
 };

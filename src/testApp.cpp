@@ -2,6 +2,17 @@
 #include <iostream>
 #include <GLUT/GLUT.h>
 
+float increment(float val, float delta){
+    val += delta;
+    val = round(val*1000)/1000.0;
+    return (val>1) ? 1 : val;
+}
+
+float decrement(float val, float delta){
+    val -= delta;
+    val = round(val*1000)/1000.0;
+    return (val<0) ? 0 : val;
+}
 
 
 //--------------------------------------------------------------
@@ -72,6 +83,10 @@ void testApp::setup()
     
     tuioClient.start(3333);
     kinectXMax=-100, kinectXMin=100, kinectYMax = -100, kinectYMin=100;
+
+//  OSC
+    sender.setup(HOST_IPAD, PORT_TO_IPAD);
+    receiver.setup(PORT_IN);
 }
 
 void testApp::adjustCamAngle(){
@@ -112,6 +127,59 @@ void testApp::update()
         //        boids[i].bounce(flyBox_x, flyBox_y, flyBox_z);
         boids[i].bounceOffset(-flyBox_x/2, flyBox_x/2, -flyBox_y/2+mark_y, flyBox_y/2+mark_y, -flyBox_z/2, flyBox_z/2);
 	}
+    
+    while(receiver.hasWaitingMessages()){
+        parseOSCMessage();
+    }
+    if(bBrighter || bDarker) updateBackDrop();
+    if(bCamAngleFar || bCamAngleUp) updateCamAngle();
+    
+}
+
+void testApp::updateCamAngle(){
+    if(bCamAngleFar){
+        cam_angle-=0.001; //looking far
+        if(cam_angle < -1.55){
+            cam_angle=-1.55;
+            bCamAngleFar = false;
+            oscSendInt("/1/camAngleFar", bCamAngleFar);
+        }
+    }else if(bCamAngleUp){
+        cam_angle +=0.001; //looking far
+        if(cam_angle >0){
+            cam_angle = 0; //maximun 0, looking straight up
+            bCamAngleUp = false;
+            oscSendInt("/1/camAngleUp", bCamAngleUp);
+        }
+    }
+    adjustCamAngle();
+    char msg[24];
+    sprintf(msg, "%.3f", cam_angle*180/PI);
+    cout<<"cam_angle:"<<msg;
+    oscSendString("/1/camAngle", msg);
+    adjustFlyBox();
+}
+
+void testApp::updateBackDrop(){
+    if(bBrighter){
+        backdrop_a = increment(backdrop_a, 0.002);
+        if(backdrop_a>=1){
+            backdrop_a = 1;
+            bBrighter = false;
+            oscSendInt("/1/brighter", 0);
+        }
+    }else if(bDarker){
+        backdrop_a = decrement(backdrop_a, 0.002);
+        if(backdrop_a<=0.0){
+            backdrop_a=0;
+            bDarker = 0;
+            oscSendInt("/1/darker", 0);
+        }
+    }
+    char msg[24];
+    sprintf(msg, "%.3f", backdrop_a);
+    oscSendString("/1/backdropa", msg);
+    cout<<"backdrop_a: "<<backdrop_a<<endl;
 }
 
 //TUIO stream from LKB has min 0 and XMax 650, YMax 500
@@ -307,15 +375,6 @@ void testApp::drawFlyBox(){
 //    glPopMatrix();
 }
 
-float increment(float val, float delta){
-    val += delta;
-    return (val>1) ? 1 : val;
-}
-
-float decrement(float val, float delta){
-    val -= delta;
-    return (val<0) ? 0 : val;
-}
 
 //--------------------------------------------------------------
 void testApp::keyPressed(int key){
@@ -392,6 +451,13 @@ void testApp::keyPressed(int key){
             bEnableFollow = !bEnableFollow;
             cout<<"EnableFollow is "<<bEnableFollow<<endl;
             break;
+        case 'i':
+            ofxOscMessage m;
+            m.setAddress("/1/toggle1");
+            m.addInt64Arg(0);
+            sender.sendMessage(m);
+            cout<<"test osc send"<<endl;
+            break;
             
     }
 //    cout<<"r"<<backdrop_r<<" g"<<backdrop_g<<" b"<<backdrop_b<<" a"<<backdrop_a<<" cam_z"<<cam_z<<endl;
@@ -464,6 +530,7 @@ void testApp::killLastBoid(){
         cout<<"Boids killing, left:"<<boids.size()<<endl;
     }else{
         bKillingBoid=false;
+        oscSendInt("/1/killingBirds", bKillingBoid);
         cout<<"Killing boids stopped"<<endl;
     }
 }
@@ -526,4 +593,91 @@ void testApp::guiEvent(ofxUIEventArgs &e){
         backdrop_a = slider->getValue();
         cout<<"backdrop_a: "<<backdrop_a<<endl;
     }
+}
+
+void testApp::parseOSCMessage(){
+    ofxOscMessage m;
+    receiver.getNextMessage(&m);
+    
+    string msg_string="";
+    string raw_address;
+    
+    raw_address = m.getAddress();
+    
+    if(raw_address == "/1/brighter"){
+        bBrighter = m.getArgAsInt32(0);
+        bDarker = false;
+        oscSendInt("/1/darker", 0);
+    }else if(raw_address == "/1/darker"){
+        bDarker = m.getArgAsInt32(0);
+        bBrighter = false;
+        oscSendInt("/1/brighter", 0);
+    }else if(raw_address == "/1/backdropa"){
+        backdrop_a = m.getArgAsFloat(0);
+    }else if(raw_address == "/1/drawFlyBox"){
+        bDrawFlyBox = m.getArgAsInt32(0);
+    }else if(raw_address == "/1/camAngleFar"){
+        bCamAngleFar = m.getArgAsInt32(0);
+        bCamAngleUp = false;
+        oscSendInt("/1/camAngleUp", 0);
+    }else if(raw_address == "/1/camAngleUp"){
+        bCamAngleUp = m.getArgAsInt32(0);
+        bCamAngleFar = false;
+        oscSendInt("/1/camAngleFar", 0);
+    }else if(raw_address == "/1/killingBirds"){
+        bKillingBoid = m.getArgAsInt32(0);
+    }else if(raw_address == "/1/addingBirds"){
+        bAddBoid = m.getArgAsInt32(0);
+        cout<<"add boid is "<<bAddBoid<<endl;
+    }else if(raw_address == "/1/overlayTargets"){
+        bOverlayTargets =m.getArgAsInt32(0);
+    }else if(raw_address=="/1/connect"){
+        int val = m.getArgAsInt32(0);
+        cout<<"connect request received: "<<val<<endl;
+        if(val==0){
+            oscSendInitConfig();
+        }
+    }else{
+        cout<<"not handled: "<<raw_address<<endl;
+    }
+    
+}
+
+void testApp::oscSendInitConfig(){
+    char msg[24];
+    sprintf(msg, "%.3f", backdrop_a);
+    oscSendString("/1/backdropa", msg);
+
+    oscSendInt("/1/drawFlyBox", bDrawFlyBox);
+    
+    sprintf(msg, "%.2f", cam_angle*180/PI);
+    oscSendString("/1/camAngle", msg);
+    
+    oscSendInt("/1/killingBirds", bKillingBoid);
+    oscSendInt("/1/addingBirds", bAddBoid);
+    
+    oscSendInt("/1/drawOverlayTarget", bOverlayTargets);
+
+    oscSendString("/1/connect/color", "green");
+}
+
+void testApp::oscSendString(const string &address, const string &msg){
+    ofxOscMessage m;
+    m.setAddress(address);
+    m.addStringArg(msg);
+    sender.sendMessage(m);
+}
+
+void testApp::oscSendFloat(const string &address, float msg){
+    ofxOscMessage m;
+    m.setAddress(address);
+    m.addFloatArg(msg);
+    sender.sendMessage(m);
+}
+
+void testApp::oscSendInt(const string &address, int msg){
+    ofxOscMessage m;
+    m.setAddress(address);
+    m.addIntArg(msg);
+    sender.sendMessage(m);
 }
