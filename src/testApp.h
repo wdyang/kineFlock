@@ -7,6 +7,7 @@
 
 #include "ofxOsc.h"
 #define HOST_IPAD "192.168.2.2" //ipad ip
+//#define HOST_IPAD "10.0.1.5" //ipad ip
 #define PORT_TO_IPAD 9000
 #define PORT_IN 8000
 
@@ -37,15 +38,16 @@ public:
     ofxUICanvas *gui;
     bool drawGUI;
     
+    
 //    cam, backdrop
-    float backdrop_r, backdrop_g, backdrop_b, backdrop_a;
+    float backdrop_r=0.4, backdrop_g=0.6, backdrop_b=1.0, backdrop_a=0.3, backdrop_rate=15;
     bool bBrighter=false, bDarker=false;
     void updateBackDrop();
 
     float cam_center_distance0, cam_center_distance;//distance from camera to the point intercept screen plan
     float cam_z=250, cam_half_view_x=44; //half_view in degree
 //    float cam_angle=-31.3*PI/180;
-//    float cam_angle=-56*PI/180;
+//    float cam_angle=-10*PI/180;
     float cam_angle=-70*PI/180;
     float mark_x, mark_y, mark_z; //where the camera is looking
     bool bCamAngleFar=false, bCamAngleUp=false;
@@ -54,7 +56,7 @@ public:
 	ofEasyCam cam;
     void adjustCamAngle();
     ofFbo fbo;
-    ofImage backdrop;
+    ofImage backdrop, backdropWhole;
     
     ofSoundPlayer music;
 	

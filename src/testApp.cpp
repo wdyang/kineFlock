@@ -25,11 +25,6 @@ void testApp::setup()
 	ofEnableAlphaBlending();
 	//ofEnableNormalizedTexCoords();
 	//ofHideCursor();
-
-    backdrop_r = 0.4;
-    backdrop_g = 0.6;
-    backdrop_b = 1.0;
-    backdrop_a = 0.1;
     
 //    drawGUI=true;
 //    setGUI();
@@ -64,9 +59,11 @@ void testApp::setup()
     cam_center_distance0 = cam_center_distance;
     cam.disableMouseInput();
     cam.setNearClip(50);
-    cam.setFarClip(1500);
+    cam.setFarClip(2500);
     fbo.allocate(ofGetWidth(), ofGetHeight());
-    backdrop.loadImage("images/clouds.jpg");
+//    backdrop.loadImage("images/clouds.jpg");
+    backdropWhole.loadImage("images/interstellar_top.jpg");
+    backdrop.cropFrom(backdropWhole, 1024, -cam_angle*180/PI*backdrop_rate, 1024, 768);
     music.loadSound("Koda - Glass Veil (CoMa Remix).mp3");
     music.play();
 	
@@ -94,6 +91,9 @@ void testApp::adjustCamAngle(){
     mark_y = cam_z * tan(cam_angle);
     cam.setTarget(ofVec3f(mark_x, mark_y, mark_z));
     cam_center_distance = sqrt(cam_z*cam_z + mark_y*mark_y);
+
+    backdrop.cropFrom(backdropWhole, 1024, -cam_angle*180/PI*backdrop_rate, 1024, 768);
+
 }
 
 void testApp::adjustFlyBox(){
@@ -308,7 +308,6 @@ void testApp::draw()
     cam.begin();
 	glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_ALWAYS);
-    ofDrawGrid();
 	
 	for (int i = 0; i < boidNum; i++)
 	{
@@ -344,7 +343,10 @@ void testApp::draw()
     }
 
     glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, color);
-    if(bDrawFlyBox) drawFlyBox();
+    if(bDrawFlyBox) {
+        ofDrawGrid();
+        drawFlyBox();
+    }
     
 	cam.end();
 }
