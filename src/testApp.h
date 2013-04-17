@@ -58,8 +58,15 @@ public:
     ofFbo fbo;
     ofImage backdrop, backdropWhole;
     
-    ofSoundPlayer music;
-	
+    const static int numMusic=4;
+    ofSoundPlayer music[numMusic];
+    string musicFiles[numMusic] = {
+        "1-05 Glass_ Akhnaten - Act 1_ Sc. 3 - The Window Of Appearances.mp3",
+        "2-01 Suite No. 2 In D Minor, BWV 1008.mp3",
+        "06 Agnus Dei. Andante Molto - Allegro Moderato.mp3",
+        "Koda - Glass Veil (CoMa Remix).mp3"};
+    void controlMusic(int id, bool action);
+    
 //      boids
 	int boidNum=5;
     int maxBoidNum=1500; //frame rate will drop after 1600

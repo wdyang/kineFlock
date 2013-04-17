@@ -64,8 +64,11 @@ void testApp::setup()
 //    backdrop.loadImage("images/clouds.jpg");
     backdropWhole.loadImage("images/interstellar_top.jpg");
     backdrop.cropFrom(backdropWhole, 1024, -cam_angle*180/PI*backdrop_rate, 1024, 768);
-    music.loadSound("Koda - Glass Veil (CoMa Remix).mp3");
-    music.play();
+//    music[0].loadSound("Koda - Glass Veil (CoMa Remix).mp3");
+    for(int i=0; i<numMusic; i++){
+        music[i].loadSound(musicFiles[i]);
+    }
+//    music[0].play();
 	
     float backdroplight = 1.0;
 	GLfloat color[] = { backdroplight, backdroplight, backdroplight };
@@ -633,7 +636,25 @@ void testApp::parseOSCMessage(){
         cout<<"add boid is "<<bAddBoid<<endl;
     }else if(raw_address == "/1/overlayTargets"){
         bOverlayTargets =m.getArgAsInt32(0);
-    }else if(raw_address=="/1/connect"){
+//  music
+    }else if(raw_address == "/1/music0"){
+        controlMusic(0, m.getArgAsInt32(0));
+    }else if(raw_address == "/1/music1"){
+        controlMusic(1, m.getArgAsInt32(0));
+    }else if(raw_address == "/1/music2"){
+        controlMusic(2, m.getArgAsInt32(0));
+    }else if(raw_address == "/1/music3"){
+        controlMusic(3, m.getArgAsInt32(0));
+    }else if(raw_address == "/1/music0volume"){
+        music[0].setVolume(m.getArgAsFloat(0));
+    }else if(raw_address == "/1/music1volume"){
+        music[1].setVolume(m.getArgAsFloat(0));
+    }else if(raw_address == "/1/music2volume"){
+        music[2].setVolume(m.getArgAsFloat(0));
+    }else if(raw_address == "/1/music3volume"){
+        music[3].setVolume(m.getArgAsFloat(0));
+//Initial connect
+    }else if(raw_address=="/1/connect"){  
         int val = m.getArgAsInt32(0);
         cout<<"connect request received: "<<val<<endl;
         if(val==0){
@@ -643,6 +664,17 @@ void testApp::parseOSCMessage(){
         cout<<"not handled: "<<raw_address<<endl;
     }
     
+}
+
+void testApp::controlMusic(int id, bool action){
+    if(action){
+        music[id].play();
+    }else{
+        music[id].stop();
+    }
+    stringstream ss;
+    ss<<"/1/music"<<id;
+    oscSendInt(ss.str(), music[id].getIsPlaying());
 }
 
 void testApp::oscSendInitConfig(){
@@ -660,6 +692,16 @@ void testApp::oscSendInitConfig(){
     
     oscSendInt("/1/drawOverlayTarget", bOverlayTargets);
 
+    for(int i=0; i<numMusic; i++){
+        stringstream ss0, ss1, ss2;
+        ss0<<"/1/music"<<i;
+        oscSendInt(ss0.str(), music[i].getIsPlaying());
+        ss1<<"/1/music"<<i<<"label";
+        oscSendString(ss1.str(), musicFiles[i]);
+        ss2<<"/1/music"<<i<<"volume";
+        oscSendFloat(ss2.str(), music[i].getVolume());
+    }
+    
     oscSendString("/1/connect/color", "green");
 }
 
