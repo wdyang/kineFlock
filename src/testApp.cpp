@@ -58,12 +58,12 @@ void testApp::setup()
     adjustCamAngle();
     cam_center_distance0 = cam_center_distance;
     cam.disableMouseInput();
-    cam.setNearClip(50);
-    cam.setFarClip(2500);
+    cam.setNearClip(nearClip);
+    cam.setFarClip(farClip);
     fbo.allocate(ofGetWidth(), ofGetHeight());
 //    backdrop.loadImage("images/clouds.jpg");
     backdropWhole.loadImage("images/interstellar_top.jpg");
-    backdrop.cropFrom(backdropWhole, 1024, -cam_angle*180/PI*backdrop_rate, 1024, 768);
+    backdrop.cropFrom(backdropWhole, 1024, -cam_angle*backdrop_rate, 1024, 768);
 //    music[0].loadSound("Koda - Glass Veil (CoMa Remix).mp3");
     for(int i=0; i<numMusic; i++){
         music[i].loadSound(musicFiles[i]);
@@ -91,17 +91,31 @@ void testApp::setup()
 
 void testApp::adjustCamAngle(){
     mark_x=0; mark_z=0;
-    mark_y = cam_z * tan(cam_angle);
+    mark_y = cam_z * tan(cam_angle*PI/180);
     cam.setTarget(ofVec3f(mark_x, mark_y, mark_z));
     cam_center_distance = sqrt(cam_z*cam_z + mark_y*mark_y);
 
-    backdrop.cropFrom(backdropWhole, 1024, -cam_angle*180/PI*backdrop_rate, 1024, 768);
+//    int x0 = 1024 + cam_theta
+    if(cam_theta<-90){
+        cam_theta +=360;
+    }else if(cam_theta>=270){
+        cam_theta-=360;
+    }
 
+    backdrop_x = 1024+cam_theta * 1024.0/90.0; //-90<= theta < 270
+    if(flyBox_x< flyBox_max) backdrop_y =-cam_angle*backdrop_rate;
+    
+    backdrop.cropFrom(backdropWhole, backdrop_x, backdrop_y, 1024, 768);
 }
 
 void testApp::adjustFlyBox(){
     flyBox_x = flyBox_x0 * cam_center_distance / cam_center_distance0;
+    flyBox_x = flyBox_x > flyBox_max ? flyBox_max : flyBox_x;
     flyBox_y = flyBox_y0 * cam_center_distance / cam_center_distance0;
+    flyBox_y = flyBox_y > flyBox_max ? flyBox_max : flyBox_y;
+    
+    oscSendFormatedFloat("/1/boxX", flyBox_x, 0);
+
     cout<<"new fly box size: "<< flyBox_x<<" "<<flyBox_y<<" "<<flyBox_z<<"y0"<<mark_y<<endl;
 }
 
@@ -135,31 +149,56 @@ void testApp::update()
         parseOSCMessage();
     }
     if(bBrighter || bDarker) updateBackDrop();
-    if(bCamAngleFar || bCamAngleUp) updateCamAngle();
+    if(bCamAngleFar || bCamAngleUp || bCamTurnLeft || bCamTurnRight) updateCamAngle();
     
 }
 
 void testApp::updateCamAngle(){
+    float delta = 0.001;
     if(bCamAngleFar){
-        cam_angle-=0.001; //looking far
-        if(cam_angle < -1.55){
-            cam_angle=-1.55;
+        if(flyBox_x==flyBox_max) delta = delta/10;
+        cam_angle-=delta*180/PI; //looking far
+        if(cam_angle < -88){
+            cam_angle=-88;
             bCamAngleFar = false;
             oscSendInt("/1/camAngleFar", bCamAngleFar);
         }
     }else if(bCamAngleUp){
-        cam_angle +=0.001; //looking far
+        cam_angle +=delta*180/PI; //looking far
         if(cam_angle >0){
             cam_angle = 0; //maximun 0, looking straight up
             bCamAngleUp = false;
             oscSendInt("/1/camAngleUp", bCamAngleUp);
         }
     }
+    
+    float deltaTheta = 0.2;
+    if(bCamTurnLeft){
+        cam_theta-=deltaTheta;
+        if(min(abs(cam_theta), abs(cam_theta-360))< deltaTheta/2.0){
+            cam_theta = 0;
+            bCamTurnLeft = 0;
+            oscSendInt("/1/camThetaToLeft", bCamTurnLeft);
+        }
+    }else if(bCamTurnRight){
+        cam_theta+=deltaTheta;
+        if(min(abs(cam_theta), abs(cam_theta-360))< deltaTheta/2.0){
+            cam_theta = 0;
+            bCamTurnRight = 0;
+            oscSendInt("/1/camThetaToRight", bCamTurnRight);
+        }
+    }
+    
     adjustCamAngle();
-    char msg[24];
-    sprintf(msg, "%.3f", cam_angle*180/PI);
-    cout<<"cam_angle:"<<msg;
-    oscSendString("/1/camAngle", msg);
+    
+    oscSendFormatedFloat("/1/camAngle", cam_angle, 3);
+    oscSendFormatedFloat("/1/camTheta", cam_theta, 1);
+    oscSendFormatedFloat("/1/camZ", cam_z, 0);
+    oscSendFormatedFloat("/1/camY", mark_y, 0);
+
+
+    cout<<"cam_angle:"<<cam_angle<<"theta: "<<cam_theta<<endl;
+
     adjustFlyBox();
 }
 
@@ -421,19 +460,19 @@ void testApp::keyPressed(int key){
             break;
         case 'z':
 //            cam_z++;
-            cam_angle-=0.001;
-            cam_angle  = (cam_angle< -1.5) ? -1.5 : cam_angle; //minimum angle 86
+            cam_angle-=0.001*180/PI;
+            cam_angle  = (cam_angle< -86) ? -86 : cam_angle; //minimum angle 86
             adjustCamAngle();
-            cout<<"cam_angle:"<<cam_angle*180/PI;
+            cout<<"cam_angle:"<<cam_angle;
             adjustFlyBox();
 //            cam.setDistance(cam_z);
             break;
         case 'Z':
 //            cam_z--;
-            cam_angle+=0.001; //looking up
+            cam_angle+=0.001*180/PI; //looking up
             cam_angle = cam_angle > 0 ? 0 : cam_angle; //maximun 0, looking straight up
             adjustCamAngle();
-            cout<<"cam_angle:"<<cam_angle*180/PI;
+            cout<<"cam_angle:"<<cam_angle;
             adjustFlyBox();
 //            cam.setDistance(cam_z);
             break;
@@ -506,12 +545,12 @@ void testApp::screenToBox(float screenX, float screenY, float &boxX, float &boxY
     float angle_x = atan((screenX-w/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
     float angle_y = atan((screenY-h/2.0)*scale/(W/2)*cam_half_view_x/180*PI);
 //    boxX =tan(angle_x)*cam_z;
-    boxY =-tan(angle_y-cam_angle)*cam_z;
+    boxY =-tan(angle_y-cam_angle*PI/180)*cam_z;
     
     
     float screenCordX = tan(angle_x) * cam_center_distance;
     float screenCordY = tan(angle_y) * cam_center_distance;
-    float z = screenCordY * sin(cam_angle);
+    float z = screenCordY * sin(cam_angle*PI/180);
     
     boxX = screenCordX * cam_z/(cam_z+z);
 }
@@ -621,6 +660,7 @@ void testApp::parseOSCMessage(){
         backdrop_a = m.getArgAsFloat(0);
     }else if(raw_address == "/1/drawFlyBox"){
         bDrawFlyBox = m.getArgAsInt32(0);
+//  Cam angle, theta
     }else if(raw_address == "/1/camAngleFar"){
         bCamAngleFar = m.getArgAsInt32(0);
         bCamAngleUp = false;
@@ -629,6 +669,15 @@ void testApp::parseOSCMessage(){
         bCamAngleUp = m.getArgAsInt32(0);
         bCamAngleFar = false;
         oscSendInt("/1/camAngleFar", 0);
+    }else if(raw_address == "/1/camThetaToLeft"){
+        bCamTurnLeft = m.getArgAsInt32(0);
+        bCamTurnRight = false;
+        oscSendInt("/1/camThetaToRight", 0);
+    }else if(raw_address == "/1/camThetaToRight"){
+        bCamTurnRight = m.getArgAsInt32(0);
+        bCamTurnLeft = false;
+        oscSendInt("/1/camThetaToLeft", 0);
+//  Boids
     }else if(raw_address == "/1/killingBirds"){
         bKillingBoid = m.getArgAsInt32(0);
     }else if(raw_address == "/1/addingBirds"){
@@ -684,8 +733,15 @@ void testApp::oscSendInitConfig(){
 
     oscSendInt("/1/drawFlyBox", bDrawFlyBox);
     
-    sprintf(msg, "%.2f", cam_angle*180/PI);
-    oscSendString("/1/camAngle", msg);
+    oscSendFormatedFloat("/1/camAngle", cam_angle, 2);
+    oscSendFormatedFloat("/1/camTheta", cam_theta, 1);
+    oscSendFormatedFloat("/1/camZ", cam_z, 0);
+    oscSendFormatedFloat("/1/camY", mark_y, 0);
+    oscSendFormatedFloat("/1/boxX", flyBox_x, 0);
+
+    
+    oscSendInt("/1/camThetaToLeft", bCamTurnLeft);
+    oscSendInt("/1/camThetaToRight", bCamTurnRight);
     
     oscSendInt("/1/killingBirds", bKillingBoid);
     oscSendInt("/1/addingBirds", bAddBoid);
@@ -718,6 +774,18 @@ void testApp::oscSendFloat(const string &address, float msg){
     m.addFloatArg(msg);
     sender.sendMessage(m);
 }
+
+void testApp::oscSendFormatedFloat(const string &address, float msg, int precision){
+    char st[24], formatst[20];
+    sprintf(formatst, "%%.%df", precision);
+    sprintf(st, formatst, msg);
+    cout<<formatst<<" "<<st<<endl;
+    ofxOscMessage m;
+    m.setAddress(address);
+    m.addStringArg(st);
+    sender.sendMessage(m);
+}
+
 
 void testApp::oscSendInt(const string &address, int msg){
     ofxOscMessage m;

@@ -40,20 +40,22 @@ public:
     
     
 //    cam, backdrop
-    float backdrop_r=0.4, backdrop_g=0.6, backdrop_b=1.0, backdrop_a=0.3, backdrop_rate=15;
+    float backdrop_r=0.4, backdrop_g=0.6, backdrop_b=1.0, backdrop_a=0.3, backdrop_rate=14.63;
+    int backdrop_x, backdrop_y;
     bool bBrighter=false, bDarker=false;
     void updateBackDrop();
 
     float cam_center_distance0, cam_center_distance;//distance from camera to the point intercept screen plan
     float cam_z=250, cam_half_view_x=44; //half_view in degree
-//    float cam_angle=-31.3*PI/180;
-//    float cam_angle=-10*PI/180;
-    float cam_angle=-70*PI/180;
+//    float cam_angle=-31.3;
+//    float cam_angle=-10;
+    float cam_angle=-70, cam_theta = 0;
     float mark_x, mark_y, mark_z; //where the camera is looking
-    bool bCamAngleFar=false, bCamAngleUp=false;
+    bool bCamAngleFar=false, bCamAngleUp=false, bCamTurnLeft = false, bCamTurnRight=false;
     void updateCamAngle();
 
 	ofEasyCam cam;
+    float nearClip=50, farClip = 5000;
     void adjustCamAngle();
     ofFbo fbo;
     ofImage backdrop, backdropWhole;
@@ -73,7 +75,7 @@ public:
 	vector<SteeredVehicle> boids;
     vector<bool> follow;
 
-    float flyBox_x0=900, flyBox_y0=900, flyBox_z0=300;
+    float flyBox_x0=900, flyBox_y0=900, flyBox_z0=300, flyBox_max=1500;
     float flyBox_x, flyBox_y, flyBox_z;
     float followChance=0;
     void adjustFlyBox();
@@ -111,6 +113,8 @@ public:
     void parseOSCMessage();
     void oscSendInt(const string &address, int msg);
     void oscSendFloat(const string &address, float msg);
+    void oscSendFormatedFloat(const string &address, float msg, int precision); //precision is the number of decimal points
     void oscSendString(const string &address, const string &msg);
     void oscSendInitConfig();
 };
+
