@@ -6,7 +6,7 @@
 #include "ofxUI.h"
 
 #include "ofxOsc.h"
-#define HOST_IPAD "192.168.2.2" //ipad ip
+//#define HOST_IPAD "192.168.2.2" //ipad ip
 //#define HOST_IPAD "10.0.1.5" //ipad ip
 #define PORT_TO_IPAD 9000
 #define PORT_IN 8000
@@ -110,6 +110,9 @@ public:
 //  OSC control
     ofxOscReceiver receiver;
     ofxOscSender    sender;
+    string ipadIP;
+    bool    bSenderLive;
+
     void parseOSCMessage();
     void oscSendInt(const string &address, int msg);
     void oscSendFloat(const string &address, float msg);

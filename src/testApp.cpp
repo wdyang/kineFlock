@@ -85,7 +85,7 @@ void testApp::setup()
     kinectXMax=-100, kinectXMin=100, kinectYMax = -100, kinectYMin=100;
 
 //  OSC
-    sender.setup(HOST_IPAD, PORT_TO_IPAD);
+//    sender.setup(HOST_IPAD, PORT_TO_IPAD);
     receiver.setup(PORT_IN);
 }
 
@@ -643,6 +643,10 @@ void testApp::parseOSCMessage(){
     ofxOscMessage m;
     receiver.getNextMessage(&m);
     
+    if(!bSenderLive){
+        ipadIP = m.getRemoteIp();
+        sender.setup(ipadIP, PORT_TO_IPAD);
+    }
     string msg_string="";
     string raw_address;
     
